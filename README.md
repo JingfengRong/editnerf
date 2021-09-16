@@ -11,8 +11,9 @@
 [Bryan Russell](http://bryanrussell.org/) <br>
 MIT, Adobe Research, CMU<br>
 in arXiv:2105.06466, 2021.
-
+smart guys
 <a href="http://editnerf.csail.mit.edu/"><img src="images/demo.gif" width=800></a>
+
 
 
 ## Editing Results
