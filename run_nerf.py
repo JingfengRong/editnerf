@@ -3,6 +3,7 @@ import copy
 
 import numpy as np
 import torch
+from models.double_nerf import DoubleNerf
 
 from run_nerf_helpers import img2mse, mse2psnr
 
@@ -45,7 +46,7 @@ def train():
             file.write(open(args.config, 'r').read())
 
     # Create nerf model
-    render_kwargs_train, render_kwargs_test, start, grad_vars, optimizer = create_nerf(args)
+    render_kwargs_train, render_kwargs_test, start, grad_vars, optimizer = create_nerf(args, model_class = DoubleNerf)
 
     print(render_kwargs_train['network_fine'])
     old_coarse_network = copy.deepcopy(render_kwargs_train['network_fn']).state_dict()

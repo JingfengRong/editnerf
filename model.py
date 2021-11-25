@@ -60,7 +60,7 @@ def load_checkpoint(chkpt_dir, args):
         return None
 
 
-def create_nerf(args, return_styles=False):
+def create_nerf(args, return_styles=False, model_class=NeRF):
     """Instantiate NeRF's MLP model.
     """
     if SEED:
@@ -75,7 +75,7 @@ def create_nerf(args, return_styles=False):
     if args.use_viewdirs:
         embeddirs_fn, input_ch_views = get_embedder(args.multires_views, args.i_embed)
     output_ch = 5 if args.N_importance > 0 else 4
-    model = NeRF(D_mean=args.D_mean, W_mean=args.W_mean, D_instance=args.D_instance, W_instance=args.W_instance, D_fusion=args.D_fusion, W_fusion=args.W_fusion, D_sigma=args.D_sigma,
+    model = model_class(D_mean=args.D_mean, W_mean=args.W_mean, D_instance=args.D_instance, W_instance=args.W_instance, D_fusion=args.D_fusion, W_fusion=args.W_fusion, D_sigma=args.D_sigma,
                  D_rgb=args.D_rgb, W_rgb=args.W_rgb, W_bottleneck=args.W_bottleneck, input_ch=input_ch, output_ch=output_ch, input_ch_views=input_ch_views, style_dim=style_dim,
                  embed_dim=args.embed_dim, style_depth=args.style_depth, shared_shape=args.shared_shape, use_viewdirs=args.use_viewdirs, separate_codes=args.separate_codes, use_styles=args.use_styles).to(device)
 
