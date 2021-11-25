@@ -1,6 +1,9 @@
 import torch.nn.functional as F
 import torch.nn as nn
 import torch
+
+from models.base_model import StyleMLP
+
 torch.autograd.set_detect_anomaly(True)
 
 
