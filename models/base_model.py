@@ -94,7 +94,7 @@ class NeRF(nn.Module):
                     h = input_pts
 
                 h = self.instance_network(h)
-
+                
                 # Prepare input to fusion network
                 if self.use_styles:
                     h = torch.cat([self.style_linears[1](styles_sigma), h], -1)

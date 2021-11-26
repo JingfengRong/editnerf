@@ -8,9 +8,11 @@ torch.autograd.set_detect_anomaly(True)
 
 
 class DoubleNerf(nn.Module):
+
     def __init__(self, D_mean=4, W_mean=256, D_instance=4, W_instance=256, D_fusion=4, W_fusion=256, D_sigma=1, W_sigma=256, D_rgb=2, W_rgb=128, W_bottleneck=8, input_ch=3, input_ch_views=3, output_ch=4, style_dim=64, embed_dim=128, style_depth=1, shared_shape=True, use_styles=True, separate_codes=True, use_viewdirs=True, **kwargs):
         super(DoubleNerf, self).__init__()
 
+        # ---- HYPERPARAMETERS ---- #
         self.input_ch = input_ch
         self.input_ch_views = input_ch_views
         self.use_viewdirs = use_viewdirs
@@ -20,9 +22,12 @@ class DoubleNerf(nn.Module):
         self.get_cached = None  # Updated by render_path to get cache
         self.activation = F.relu
 
+        # ---- LAYERS ---- #
         if shared_shape:
             self.mean_network = nn.Sequential(*[nn.Linear(input_ch, W_mean)], *[nn.Sequential(nn.ReLU(), nn.Linear(W_mean, W_mean)) for i in range(D_mean - 2)])
             self.mean_output = nn.Sequential(nn.ReLU(), nn.Linear(W_mean, W_instance))
+
+
 
         if separate_codes:
             style_dim = style_dim // 2
@@ -36,6 +41,12 @@ class DoubleNerf(nn.Module):
         self.instance_network = nn.Sequential(*[nn.Sequential(nn.Linear(pts_inp_dim, W_instance), nn.ReLU())], *[nn.Sequential(nn.Linear(W_instance, W_instance), nn.ReLU()) for i in range(D_instance - 1)])
         self.instance_to_fusion = nn.Linear(pts_inp_dim + W_instance, W_fusion)
         self.fusion_network = nn.Sequential(*[nn.Sequential(nn.Linear(W_fusion, W_fusion), nn.ReLU()) for i in range(D_fusion - 1)])
+        
+        self.instance2_network = nn.Sequential(*[nn.Sequential(nn.Linear(pts_inp_dim, W_instance), nn.ReLU())], *[nn.Sequential(nn.Linear(W_instance, W_instance), nn.ReLU()) for i in range(D_instance - 3)])
+        # self.instance2_output = nn.Linear(W_instance, W_instance)
+
+        self.dura_network = nn.Sequential(*[nn.Sequential(nn.Linear(W_fusion, W_instance), nn.ReLU())], *[nn.Sequential(nn.Linear(W_instance, W_instance), nn.ReLU()) for i in range(D_instance - 2)])
+        # self.dura_output = nn.Linear(W_instance, W_instance)
 
         if use_viewdirs:
             if D_sigma > 1:
@@ -55,7 +66,7 @@ class DoubleNerf(nn.Module):
         else:
             self.style_linears = nn.ModuleList([nn.Identity() for i in range(3)])
 
-        # self.num_parameters()
+        self.num_parameters()
 
     def forward(self, x, styles, alpha=None, feature=None):
         input_pts, input_views = torch.split(x, [self.input_ch, self.input_ch_views], dim=-1)
@@ -76,34 +87,55 @@ class DoubleNerf(nn.Module):
                 # Prepare input to instance network
                 if self.use_styles:
                     h = torch.cat([input_pts, self.style_linears[0](styles_sigma)], dim=1)
+                    m = h.detach().clone()
                 else:
                     h = input_pts
 
                 h = self.instance_network(h)
 
-                # Prepare input to fusion network
+
+                # Prepare input to dure network
                 if self.use_styles:
                     h = torch.cat([self.style_linears[1](styles_sigma), h], -1)
                 h = torch.cat([input_pts, h], -1)
-                instance_output = self.instance_to_fusion(h)
+                instance_output = self.instance_to_fusion(h) ## dim = W_fusion
 
-                # Add shared shape features to instance features
                 if self.shared_shape:
                     h = instance_output + mean_output
                 else:
                     h = instance_output
 
-                shape_features = h
-            else:
-                # Cached instance_output + mean_output
-                h = feature
+                # dure network
+                h = self.dura_network(h) ##dim = W_instance
+
+                # residual instance output dim = W_instance
+                t = self.instance2_network(m)
+                
+                # residual
+
+                h = h + t
+                
+
+            #     # Add shared shape features to instance features
+            #     if self.shared_shape:
+            #         h = instance_output + mean_output
+            #     else:
+            #         h = instance_output
+
+            #     shape_features = h
+            # else:
+            #     # Cached instance_output + mean_output
+            #     h = feature
 
             h = self.activation(h)
             fusion_output = self.fusion_network(h)
             alpha = self.sigma_linear(fusion_output)
             color_feature = self.bottleneck_linear(fusion_output)
+        
         else:
             color_feature = feature
+        
+        #residual block for texture to be finished
 
         if self.use_viewdirs:
             if self.use_styles:
